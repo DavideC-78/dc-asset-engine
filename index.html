@@ -226,11 +226,12 @@ async function decrypt(enc, pass){
   return JSON.parse(new TextDecoder().decode(pt));
 }
 async function fetchEnc(){
-  for(const u of DATA_URLS){ if(u.includes('DavideC-78/dc-asset-engine')) continue;
-    try{ const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'}); if(r.ok){ const j=await r.json(); if(j.fmt==='dcae-enc'){ LS.set('dcae-enc',JSON.stringify(j)); return {enc:j,online:true}; } } }catch(e){}
+  const why=[];
+  for(const u of DATA_URLS){
+    try{ const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'}); if(r.ok){ const j=await r.json(); if(j.fmt==='dcae-enc'){ LS.set('dcae-enc',JSON.stringify(j)); return {enc:j,online:true}; } why.push('formato'); } else why.push('HTTP '+r.status); }catch(e){ why.push(e.message||'rete'); }
   }
   const c=LS.get('dcae-enc'); if(c) return {enc:JSON.parse(c),online:false};
-  throw new Error('Nessun dato disponibile: controlla la connessione');
+  throw new Error('Nessun dato disponibile: controlla la connessione ('+why.join(' · ')+')');
 }
 let D=null, PASS=null, charts={}, SORT='value', SCALE='log', RANGE=60;
 
