@@ -142,6 +142,7 @@ body.priv .m{filter:blur(7px);user-select:none}
       <div class="lbl">Patrimonio</div>
       <div class="big num m" id="tot"></div>
       <div class="row" style="flex-wrap:wrap;gap:8px" id="delta"></div>
+      <div class="sub num" id="netTot" style="margin-top:8px"></div>
       <div class="kpis">
         <div class="kpi"><small>Investito</small><b class="num m" id="kInv"></b><div class="sub num" id="kInvP"></div></div>
         <div class="kpi"><small>Liquidità</small><b class="num m" id="kLiq"></b><div class="sub num" id="kLiqP"></div></div>
@@ -263,6 +264,9 @@ function renderOv(){
   const ys=h.filter(x=>x.m.endsWith('-12')&&x.m<cur.slice(0,4)+'-01').pop();
   const d1=prev?T.total-prev.total:null, dy=ys?T.total-ys.total:null;
   $('#delta').innerHTML=(prev?`<span class="pill ${cls(d1)} num"><span class="m">${sgn(d1)}</span> ${pct(d1/prev.total)} da ${mkLbl(prev.m)}</span>`:'')+(ys?`<span class="pill ${cls(dy)} num"><span class="m">${sgn(dy)}</span> ${pct(dy/ys.total)} nel ${now.getFullYear()}</span>`:'');
+  { const tax=T.tax ?? D.positions.filter(p=>{const k=D.classes.find(c=>c.id===p.classId)?.kind;return k==='inv'||k==='liq';}).reduce((a,p)=>a+(p.tax||0),0);
+    const pen=D.pension||{}; const pt=(pen.cometa||0)+(pen.amundi||0);
+    $('#netTot').innerHTML=(tax>0.5?`Netto se vendessi oggi: <b class="m">${eur(T.total-tax)}</b> · tasse <span class="m">${eur(tax)}</span>`:'')+(pt>0?`<br>Previdenza (vincolata, fuori totale): <b class="m">${eur(pt)}</b>`:''); }
   $('#kInv').textContent=eur(T.inv); $('#kLiq').textContent=eur(T.liq);
   $('#kInvP').textContent=pct(T.inv/T.total).replace('+','')+' del totale'; $('#kLiqP').textContent=pct(T.liq/T.total).replace('+','')+' del totale';
   const cl=D.classes.filter(c=>c.kind!=='out' && (T.cls[c.id]||0)>0).sort((a,b)=>T.cls[b.id]-T.cls[a.id]);
@@ -311,7 +315,7 @@ function renderList(){
     return `<div class="card inst" data-id="${esc(p.id)}">
       <div class="h"><div style="flex:1;min-width:0"><div class="nm">${esc(p.name)}</div>${I?`<div class="tg">${esc(I.tag)}</div>`:''}
         <span class="chip"><i class="dot" style="background:var(--s-${p.classId});margin-right:0"></i>${esc(C[p.classId]?.label||p.classId)}</span></div>
-        <div class="v"><b class="num m">${eur(p.value)}</b><div class="sub num">${(p.value/tot*100).toLocaleString('it-IT',{maximumFractionDigits:1})}% del totale</div></div></div>
+        <div class="v"><b class="num m">${eur(p.value)}</b><div class="sub num">${(p.value/tot*100).toLocaleString('it-IT',{maximumFractionDigits:1})}% del totale</div>${p.tax>0.5?`<div class="sub num" style="font-size:11px">netto <span class="m">${eur(p.value-p.tax)}</span></div>`:''}</div></div>
       ${perfs(p)}${hz}
       <div class="more">
         ${det?`<div class="num m">${det}</div>`:''}${p.pac?`<div>PAC <b class="m">${eur(p.pac)}</b>/mese</div>`:''}
