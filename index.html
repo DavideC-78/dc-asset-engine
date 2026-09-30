@@ -116,6 +116,20 @@ body.priv .m{filter:blur(7px);user-select:none}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);opacity:0;background:var(--text);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:13.5px;transition:.25s;z-index:30;pointer-events:none;max-width:90vw}
 .toast.on{opacity:1;transform:translateX(-50%)}
 .stress{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+/* conti (viewer 2.1) */
+.cobars{display:flex;flex-direction:column;gap:9px;margin-top:10px}
+.cob{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:13.5px}
+.cob .tr{grid-column:1/-1;height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.cob .tr i{display:block;height:100%;border-radius:4px}
+.cob .v{text-align:right;font-weight:700}
+.cob .v small{font-weight:500;color:var(--muted);margin-left:4px}
+.loanv{border-top:1px solid var(--border);padding:10px 0}
+.loanv:first-of-type{border-top:0}
+.loanv .h{display:flex;justify-content:space-between;gap:8px;font-weight:750}
+.bdg{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;align-self:flex-start;height:fit-content}
+.bdg.ok{background:var(--good-bg);color:var(--good)} .bdg.warn{background:var(--warn-bg);color:var(--warn)}
+.hzbar.lo span{background:var(--s-jest)}
 </style>
 </head>
 <body class="priv">
@@ -169,6 +183,35 @@ body.priv .m{filter:blur(7px);user-select:none}
     <div id="list"></div>
   </section>
 
+  <section class="view" id="v-co">
+    <div id="coEmpty"></div>
+    <div id="coBody">
+      <div class="card hero">
+        <div class="lbl" id="coLbl">Risparmio medio al mese</div>
+        <div class="big num m" id="coTot"></div>
+        <div class="row" style="flex-wrap:wrap;gap:8px" id="coPill"></div>
+        <div class="kpis">
+          <div class="kpi"><small>Entrate al mese</small><b class="num m" id="coE"></b></div>
+          <div class="kpi"><small>Spese correnti al mese</small><b class="num m" id="coU"></b></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Mese per mese</h2>
+        <div class="sub">Barre: entrate e spese correnti. Linea: risparmio (entrate − spese). Investimenti e rimborsi dei debiti non sono spese: spostano soldi, non li consumano.</div>
+        <div class="chartbox" style="height:240px;margin-top:8px"><canvas id="chCo"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Dove vanno i soldi</h2><div class="sub" id="coWhereSub"></div>
+        <div class="cobars" id="coWhere"></div>
+      </div>
+      <div class="card">
+        <h2>Finanziamenti</h2><div class="sub">Il debito residuo è una passività: un valore che devi ancora.</div>
+        <div id="coLoans" style="margin-top:6px"></div>
+      </div>
+      <div class="sub" id="coFoot" style="text-align:center;margin:4px 0 16px"></div>
+    </div>
+  </section>
+
   <section class="view" id="v-hi">
     <div class="card">
       <div class="row"><h2>Andamento mensile</h2><span class="spacer"></span><div class="seg" id="segRange"><button data-r="24">2a</button><button data-r="60" class="on">5a</button><button data-r="999">Tutto</button></div></div>
@@ -181,6 +224,7 @@ body.priv .m{filter:blur(7px);user-select:none}
 <nav><div class="wrap">
   <button data-v="ov" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Panoramica</button>
   <button data-v="st"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/></svg>Strumenti</button>
+  <button data-v="co"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/></svg>Conti</button>
   <button data-v="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 20h18M5 16l4-5 4 3 6-8"/></svg>Storico</button>
 </div></nav>
 <div class="toast" id="toast"></div>
@@ -254,7 +298,34 @@ async function refresh(){
 function render(){
   const at=new Date(D.at), pa=D.pricesAt?new Date(D.pricesAt):at;
   $('#stamp').textContent='dati del '+at.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})+' '+at.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' · v'+D.app;
-  renderOv(); renderList(); renderHist();
+  renderOv(); renderList(); renderHist(); renderCo();
+}
+function renderCo(){
+  const C=D.conti;
+  if(!C){ $('#coBody').style.display='none'; $('#coEmpty').innerHTML='<div class="card"><h2>Conti non ancora pubblicati</h2><div class="sub">Sul PC apri DC_Asset Engine, scheda <b>Conti &amp; bilancio</b>: i dati arrivano qui alla pubblicazione successiva.</div></div>'; return; }
+  $('#coEmpty').innerHTML=''; $('#coBody').style.display='';
+  $('#coLbl').textContent='Risparmio medio al mese · '+C.period;
+  $('#coTot').textContent=eur(C.avgR);
+  const rate=C.avgE>0?C.avgR/C.avgE:0;
+  $('#coPill').innerHTML=`<span class="pill ${cls(C.avgR)}">${Math.round(rate*100)}% delle entrate</span>`+(C.resid>0?`<span class="pill"><span class="m">${eur(C.resid)}</span> di debiti residui</span>`:'')+(C.nd?`<span class="pill">${C.nd} movimenti da classificare</span>`:'');
+  $('#coE').textContent=eur(C.avgE); $('#coU').textContent=eur(C.avgU);
+  const lab=C.months.map(m=>{const [y,mo]=m.split('-'); return MESI[+mo-1]+' '+y.slice(2);});
+  const pv=v=>document.body.classList.contains('priv')?'•••':eur(v);
+  mk('chCo',{type:'bar',data:{labels:lab,datasets:[
+    {type:'line',label:'Risparmio',data:C.R,borderColor:css('--accent'),backgroundColor:css('--accent'),borderWidth:2.5,pointRadius:2.5,tension:.25,order:0},
+    {label:'Entrate',data:C.E,backgroundColor:css('--s-jest'),borderRadius:4,order:1},
+    {label:'Spese',data:C.U,backgroundColor:css('--s-equity'),borderRadius:4,order:1}]},
+    options:{interaction:{mode:'index',intersect:false},scales:{y:{ticks:{callback:v=>kf(v),maxTicksLimit:5},grid:{color:css('--grid')}},x:{grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:6}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+pv(c.parsed.y)}}}}});
+  const mx=Math.max(...C.cats.map(x=>x.avg),1), tot=C.cats.reduce((a,x)=>a+x.tot,0)||1;
+  $('#coWhereSub').textContent='Spese correnti, media al mese · '+(C.mode==='comp'?'competenza (spese annuali divise su 12 mesi)':'cassa (quando escono i soldi)');
+  $('#coWhere').innerHTML=C.cats.map(x=>`<div class="cob"><span>${esc(x.l)}</span><span class="v num"><span class="m">${eur(x.avg)}</span><small>${Math.round(x.tot/tot*100)}%</small></span><span class="tr"><i style="width:${(x.avg/mx*100).toFixed(1)}%;background:var(${x.c},var(--s-out))"></i></span></div>`).join('');
+  $('#coLoans').innerHTML=(C.loans||[]).map(L=>{ const pr=L.n?Math.min(1,L.paid/L.n):(L.done?1:.5);
+    return `<div class="loanv"><div class="h"><span>${esc(L.name)}</span><span class="bdg ${L.done?'ok':'warn'}">${L.done?'Chiuso':'In corso'}</span></div>
+      <div class="sub">${esc(L.cred)} · rata <span class="m">${eur(L.rata)}</span> · ${L.paid}${L.n?' rate su '+L.n:' rate pagate'}${L.end?' · fine '+L.end:''}</div>
+      <div class="hzbar lo"><span style="width:${(pr*100).toFixed(1)}%"></span></div>
+      ${!L.done&&L.resid!=null?`<div class="sub" style="margin-top:4px">Debito residuo <b class="m">${eur(L.resid)}</b></div>`:''}</div>`; }).join('')||'<div class="sub">Nessun finanziamento.</div>';
+  $('#coFoot').textContent='Estratti Intesa letti il '+new Date(C.at).toLocaleDateString('it-IT')+(C.last?' · ultimo movimento '+new Date(C.last).toLocaleDateString('it-IT'):'');
 }
 const CL=()=>Object.fromEntries(D.classes.map(c=>[c.id,c]));
 function renderOv(){
