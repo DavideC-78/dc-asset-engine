@@ -219,12 +219,14 @@ body.priv .m{filter:blur(7px);user-select:none}
     </div>
     <div class="card"><h2>Ultimi mesi</h2><table id="tbl"></table></div>
   </section>
+  <section class="view" id="v-sc"><div id="scRoot"></div></section>
 </main>
 
 <nav><div class="wrap">
   <button data-v="ov" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Panoramica</button>
   <button data-v="st"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/></svg>Strumenti</button>
   <button data-v="co"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/></svg>Conti</button>
+  <button data-v="sc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5c3-1.5 7-1.5 10 1 3-2.5 7-2.5 10-1v14c-3-1.5-7-1.5-10 1-3-2.5-7-2.5-10-1z"/><path d="M12 6v14"/></svg>Scuola</button>
   <button data-v="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 20h18M5 16l4-5 4 3 6-8"/></svg>Storico</button>
 </div></nav>
 <div class="toast" id="toast"></div>
@@ -295,10 +297,277 @@ async function refresh(){
   if(!PASS) return; try{ const {enc,online}=await fetchEnc(); D=await decrypt(enc,PASS); render(); toast(online?'Aggiornato':'Offline: dati dell\'ultima copia'); }catch(e){ toast(e.message); }
 }
 
+/* ================= SCUOLA DI PARTITA DOPPIA (v2.4.0) — stesso codice nell'engine e nell'app del telefono =================
+   Il contesto arriva da un adattatore: {eur, eur2, cls:[{id,label,v}], sum (riepilogo Conti), journal:[{d,desc,lines:[{s,acc,a,t}]}], stip, where}.
+   Ogni termine tecnico è cliccabile (classe sc-t) e mostra la sua definizione: così il nome resta sempre agganciato al concetto. */
+const SC = {tab:'regole', qi:0, qs:null, ok:0, done:false, ans:null};
+const SC_DEF = {
+  'Conto':"Una scheda che raccoglie tutto quello che riguarda una sola cosa: la banca, lo stipendio, la spesa. Si disegna come una T.",
+  'Dare':"La colonna di SINISTRA di ogni conto. Il nome è storico: non vuol dire «devo dare».",
+  'Avere':"La colonna di DESTRA di ogni conto. Anche qui il nome è storico: non vuol dire «devo avere».",
+  'Partita doppia':"Ogni operazione si scrive su almeno due conti, e il totale scritto in Dare è sempre uguale al totale scritto in Avere.",
+  'Variazione finanziaria':"Cambiano i soldi, i crediti o i debiti. Attiva (VF+): entrano soldi o calano i debiti → Dare. Passiva (VF−): escono soldi o nascono debiti → Avere.",
+  'Variazione economica':"Cambia la ricchezza per un costo o un ricavo. Negativa (VE−): un costo, ricchezza consumata → Dare. Positiva (VE+): un ricavo, ricchezza guadagnata → Avere.",
+  'VF+':"Variazione finanziaria attiva: entrano soldi, nasce un credito o cala un debito. Si scrive in Dare.",
+  'VF−':"Variazione finanziaria passiva: escono soldi, nasce un debito o cala un credito. Si scrive in Avere.",
+  'VE−':"Variazione economica negativa: un costo, cioè ricchezza consumata. Si scrive in Dare.",
+  'VE+':"Variazione economica positiva: un ricavo, cioè ricchezza guadagnata. Si scrive in Avere.",
+  'Permutativa':"Scambi un valore con un altro della stessa grandezza (soldi → titoli, soldi → meno debiti): la ricchezza non cambia. Nessun costo e nessun ricavo.",
+  'Modificativa':"Cambia la ricchezza: di mezzo c'è un costo o un ricavo (stipendio, spesa, interessi).",
+  'Libro giornale':"Il quaderno dove si scrivono le operazioni in ordine di data, ognuna con i suoi conti in Dare e in Avere.",
+  'Mastrino':"Un singolo conto disegnato a T con tutti i suoi movimenti: Dare a sinistra, Avere a destra.",
+  'Saldo':"La differenza tra il totale Dare e il totale Avere di un conto. Saldo dare: prevale la sinistra; saldo avere: prevale la destra.",
+  'Costo':"Ricchezza consumata che non torna: spesa, bolletta, interessi. Va in Dare (VE−).",
+  'Ricavo':"Ricchezza guadagnata: stipendio, rimborso, risarcimento. Va in Avere (VE+).",
+  'Attività':"Quello che possiedi: soldi in banca, titoli, beni, crediti. Nello stato patrimoniale stanno a sinistra.",
+  'Passività':"Quello che devi: debiti verso banche, finanziarie, carta di credito, famiglia. Nello stato patrimoniale stanno a destra.",
+  'Patrimonio netto':"Attività meno passività: quanto resterebbe tuo se vendessi tutto e pagassi tutti i debiti.",
+  'Stato patrimoniale':"La fotografia di un giorno: a sinistra le attività, a destra passività e patrimonio netto. I due lati sono sempre uguali.",
+  'Conto economico':"Il film di un periodo: ricavi meno costi. Per un'azienda la differenza è l'utile; per te è il risparmio.",
+  'Utile':"Ricavi meno costi di un periodo. Se è negativo si chiama perdita. Per te corrisponde al risparmio del periodo.",
+  'Immobilizzazione':"Un bene che dura anni (mobili, auto, lavori in casa): non è un costo di un mese solo, è un'attività.",
+  'Ammortamento':"La parte di un bene durevole che «consumi» ogni anno. È un costo (Dare), spalmato sugli anni di vita del bene.",
+  'Fondo ammortamento':"Il conto che accumula gli ammortamenti già fatti e riduce il valore del bene. Si scrive in Avere.",
+  'Risconto attivo':"Un costo già pagato che appartiene in parte al futuro: quella parte si rimanda all'anno dopo. Va in Dare.",
+  'Rateo':"Il contrario del risconto: un costo o un ricavo che appartiene a quest'anno ma si pagherà o incasserà dopo.",
+  'Competenza':"Un costo o un ricavo conta nel periodo a cui si riferisce, non quando escono o entrano i soldi.",
+  'Cassa':"Un costo o un ricavo conta il giorno in cui escono o entrano i soldi.",
+  'Credito':"Una somma che qualcuno ti deve (per esempio lo Stato con le detrazioni). È un'attività: quando nasce va in Dare.",
+  'Debito':"Una somma che devi a qualcuno. È una passività: quando nasce va in Avere, quando la restituisci in Dare.",
+};
+const scEsc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const scT = (t, label) => `<span class="sc-t" data-t="${scEsc(t)}">${scEsc(label||t)}</span>`;
+const SC_CH = {
+  d:`<svg viewBox="0 0 64 70" class="sc-ch" aria-hidden="true"><rect x="1" y="1" width="34" height="15" rx="5" fill="var(--surface)" stroke="var(--s-bond)" stroke-width="2"/><text x="18" y="12" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor">DARE</text><line x1="18" y1="16" x2="22" y2="26" stroke="var(--s-bond)" stroke-width="2"/><circle cx="34" cy="44" r="23" fill="var(--s-bond)"/><circle cx="26" cy="40" r="4.5" fill="#fff"/><circle cx="42" cy="40" r="4.5" fill="#fff"/><circle cx="27" cy="41" r="2.2" fill="#23232b"/><circle cx="43" cy="41" r="2.2" fill="#23232b"/><path d="M25 52 Q34 59 43 52" stroke="#23232b" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M14 30 Q20 18 34 21" stroke="#23232b" stroke-width="2" fill="none" stroke-linecap="round" opacity=".35"/></svg>`,
+  a:`<svg viewBox="0 0 64 70" class="sc-ch" aria-hidden="true"><rect x="27" y="1" width="36" height="15" rx="5" fill="var(--surface)" stroke="var(--s-jest)" stroke-width="2"/><text x="45" y="12" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor">AVERE</text><line x1="45" y1="16" x2="40" y2="25" stroke="var(--s-jest)" stroke-width="2"/><rect x="9" y="23" width="46" height="44" rx="14" fill="var(--s-jest)"/><path d="M22 23 L18 15 L28 20 Z M42 23 L46 15 L36 20 Z" fill="var(--s-gold)"/><circle cx="24" cy="41" r="4.5" fill="#fff"/><circle cx="40" cy="41" r="4.5" fill="#fff"/><circle cx="23" cy="42" r="2.2" fill="#23232b"/><circle cx="39" cy="42" r="2.2" fill="#23232b"/><path d="M24 54 Q32 60 40 54" stroke="#23232b" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>`,
+};
+/* una riga di scrittura: [lato 'D'|'A', conto, importo, tipo 'f' (finanziaria) | 'e' (economica)] */
+const scTag = (s,k) => k==='e' ? (s==='D'?'VE−':'VE+') : (s==='D'?'VF+':'VF−');
+function scEntry(rows, C, date){
+  const col = side => rows.filter(r=>r[0]===side).map(r=>`<div class="sc-l"><span>${scEsc(r[1])}${scT(scTag(side,r[3]), scTag(side,r[3])).replace('class="sc-t"','class="sc-t sc-tag '+r[3]+'"')}</span><span class="m num">${C.eur2(r[2])}</span></div>`).join('');
+  const tD = rows.filter(r=>r[0]==='D').reduce((a,r)=>a+r[2],0), tA = rows.filter(r=>r[0]==='A').reduce((a,r)=>a+r[2],0);
+  return `<div class="sc-je">${date?`<div class="sc-date">${scEsc(date)}</div>`:''}<div class="hd"><div>${scT('Dare')} · sinistra</div><div>${scT('Avere')} · destra</div></div>
+    <div class="bd"><div class="col">${col('D')}</div><div class="col">${col('A')}</div></div>
+    <div class="sc-ok">${Math.abs(tD-tA)<0.01?'✓ Totale Dare = totale Avere':'⚠ i totali non tornano'}: <span class="m num">${C.eur2(tD)}</span></div></div>`;
+}
+const scPanel = (who, txt) => `<div class="sc-p ${who}"><div class="sc-who">${SC_CH[who]}<small>${who==='d'?'Dario<br>sta in Dare':'Avelina<br>sta in Avere'}</small></div><div class="sc-b">${txt}</div></div>`;
+function scStrips(C){
+  const st = C.stip && C.stip>300 ? Math.round(C.stip*100)/100 : 2200, e2 = C.eur2;
+  return [
+    {t:"Arriva lo stipendio", p:[
+      ['d',`Lo stipendio è arrivato: <b class="m">${e2(st)}</b> in più sul conto Intesa.`],
+      ['a',`Succedono due cose nello stesso momento: la banca sale, e hai guadagnato un ${scT('Ricavo','ricavo')}. Due cose, due ${scT('Conto','conti')}.`],
+      ['d',`Banca che sale = ${scT('VF+')}, viene da me, in Dare. Lo stipendio è un ricavo = ${scT('VE+')}: va da Avelina, in Avere.`]],
+     e:[['D','Banca c/c Intesa',st,'f'],['A','Stipendi (ricavo)',st,'e']], n:`È una variazione ${scT('Modificativa','modificativa')}: la tua ricchezza è cresciuta.`},
+    {t:"La spesa al supermercato", p:[
+      ['a',`Spendi <b class="m">${e2(85)}</b> alla Prix: escono soldi dalla banca.`],
+      ['d',`Quella spesa non torna più: è un ${scT('Costo','costo')}, ricchezza consumata. I costi stanno da me, in Dare (${scT('VE−')}).`],
+      ['a',`E la banca che scende è una ${scT('VF−')}: va da me, in Avere.`]],
+     e:[['D','Spesa alimentare (costo)',85,'e'],['A','Banca c/c Intesa',85,'f']], n:`Modificativa: la tua ricchezza è scesa di 85 €.`},
+    {t:"Comprare IG32 non è una spesa", p:[
+      ['d',`Hai comprato 87 quote di IG32 su Scalable per <b class="m">${e2(448.05)}</b>.`],
+      ['a',`Sembra una spesa, ma i soldi non sono spariti: sono diventati titoli. Hai scambiato un valore con un altro.`],
+      ['d',`È una ${scT('Permutativa','permutativa')}: nessun costo. Titoli che salgono = ${scT('VF+')} in Dare; banca che scende = ${scT('VF−')} in Avere.`]],
+     e:[['D','Titoli IG32 (attività)',448.05,'f'],['A','Banca c/c (Scalable)',448.05,'f']], n:`Per questo nel cruscotto i PAC non sono «spese»: stanno tra gli spostamenti.`},
+    {t:"Il ristorante con la carta di credito", p:[
+      ['a',`Ceni fuori con la carta di credito: <b class="m">${e2(60)}</b>. Oggi la banca non si muove!`],
+      ['d',`Però il costo c'è già: Ristoranti in Dare (${scT('VE−')}). E nasce un ${scT('Debito','debito')} verso la carta: un debito che nasce è una ${scT('VF−')}, in Avere.`],
+      ['a',`Il mese dopo Intesa addebita il saldo della carta: il debito si chiude (Dare) e la banca scende (Avere). Nessun costo nuovo: l'avevi già scritto.`]],
+     e:[['D','Ristoranti e bar (costo)',60,'e'],['A','Debiti v/carta di credito',60,'f']],
+     e2:[['D','Debiti v/carta di credito',60,'f'],['A','Banca c/c Intesa',60,'f']], d1:'giorno della cena', d2:'addebito del saldo carta, il mese dopo',
+     n:`Due scritture in due giorni diversi: è il motivo per cui il cruscotto mette l'addebito del saldo carta tra i movimenti interni.`},
+    {t:"La rata del finanziamento", p:[
+      ['d',`Paghi la rata Compass del tapis roulant: <b class="m">${e2(87.42)}</b>.`],
+      ['a',`La rata non è una spesa: la spesa l'hai fatta il giorno dell'acquisto. Ora stai restituendo un ${scT('Debito','debito')}.`],
+      ['d',`Debito che scende = ${scT('VF+')}, in Dare: devi meno, è come avere di più. Banca che scende = ${scT('VF−')}, in Avere. Se nella rata ci sono interessi, solo quella parte è un costo (${scT('VE−')}).`]],
+     e:[['D','Debiti v/Compass',87.42,'f'],['A','Banca c/c Intesa',87.42,'f']], n:`Permutativa: meno soldi, ma anche meno debiti. La ricchezza non cambia (a parte gli eventuali interessi).`},
+    {t:"L'assicurazione auto e il risconto", p:[
+      ['a',`Il 1° ottobre paghi l'assicurazione auto: <b class="m">${e2(480)}</b> per un anno intero.`],
+      ['d',`Al 31 dicembre si chiude l'anno: dei 12 mesi pagati ne hai usati solo 3. Gli altri 9, cioè <b class="m">${e2(360)}</b>, sono costo dell'anno dopo.`],
+      ['a',`Quella parte si rimanda con un ${scT('Risconto attivo','risconto attivo')}: un costo già pagato che appartiene al futuro. È il criterio di ${scT('Competenza','competenza')}, lo stesso che il cruscotto usa quando divide l'assicurazione su 12 mesi.`]],
+     e:[['D','Assicurazioni auto (costo)',480,'e'],['A','Banca c/c Intesa',480,'f']],
+     e2:[['D','Risconti attivi',360,'f'],['A','Assicurazioni auto (costo)',360,'e']], d1:'1° ottobre: pagamento', d2:'31 dicembre: rinvio della parte futura',
+     n:`Risultato: nel conto economico dell'anno restano 120 € di costo, cioè 3 mesi su 12. Il contrario del risconto è il ${scT('Rateo','rateo')}.`},
+    {t:"I mobili della ristrutturazione", p:[
+      ['d',`Compri mobili per <b class="m">${e2(3000)}</b> (esempio). Durano anni: non sono il costo di un mese solo.`],
+      ['a',`Diventano un'${scT('Immobilizzazione','immobilizzazione')}, un bene che resta. Ogni anno se ne consuma un pezzo: l'${scT('Ammortamento','ammortamento')}, per esempio 3.000 ÷ 10 anni = 300 € all'anno.`],
+      ['d',`E la detrazione del 50% è un ${scT('Credito','credito')} verso lo Stato: 1.500 € che ti torneranno in 10 anni col 730. Un credito che nasce sta in Dare.`]],
+     e:[['D','Mobili (immobilizzazione)',3000,'f'],['A','Banca c/c Intesa',3000,'f']],
+     e2:[['D','Ammortamento mobili (costo)',300,'e'],['A','Fondo ammortamento mobili',300,'f']], d1:'giorno dell\'acquisto', d2:'31 dicembre di ogni anno, per 10 anni',
+     n:`Il ${scT('Fondo ammortamento','fondo ammortamento')} va in Avere perché riduce il valore del bene: dopo 10 anni i mobili valgono 0 in bilancio.`},
+  ];
+}
+function scRegole(C){
+  const rule=(b,t)=>`<div class="sc-rule"><b>${b}</b>${t}</div>`;
+  const V=[['VF+','Variazione finanziaria attiva','entrano soldi, nasce un credito, cala un debito','stipendio sul conto, rata che riduce il debito','Dare'],
+           ['VF−','Variazione finanziaria passiva','escono soldi, nasce un debito, cala un credito','bonifico a Scalable, spesa con la carta di credito','Avere'],
+           ['VE−','Variazione economica negativa','un costo: ricchezza consumata','spesa, bollette, interessi','Dare'],
+           ['VE+','Variazione economica positiva','un ricavo: ricchezza guadagnata','stipendio, rimborso 730, risarcimento','Avere']];
+  return `<div class="sc-card"><h3>Le regole in quattro righe</h3><div class="sc-sub">Tocca le parole sottolineate: ti ricordano cosa vogliono dire, ogni volta.</div>
+    <div class="sc-rules mt">${rule('1 · Il conto',`Un ${scT('Conto','conto')} è una scheda a forma di T per ogni cosa che vuoi seguire: la banca, lo stipendio, la spesa.`)}
+    ${rule('2 · Sinistra e destra',`${scT('Dare')} è la colonna di sinistra, ${scT('Avere')} quella di destra. Sono solo due lati: non c'entra «dare» o «avere» soldi.`)}
+    ${rule('3 · Sempre in coppia',`${scT('Partita doppia')}: ogni operazione tocca almeno due conti, e quanto scrivi in Dare è uguale a quanto scrivi in Avere.`)}
+    ${rule('4 · Il trucco',`<strong>Dare</strong> = soldi che entrano, debiti che calano, costi.<br><strong>Avere</strong> = soldi che escono, debiti che nascono, ricavi.`)}</div></div>
+  <div class="sc-card"><h3>Le quattro variazioni</h3><div class="sc-sub">Il metodo che si studia in Italia (sistema del reddito): ogni conto si muove per una di queste quattro ragioni.</div>
+    <div class="sc-vt mt">${V.map(v=>`<div class="sc-v"><span class="sc-tag ${v[0][1]==='F'?'f':'e'}">${scT(v[0])}</span><div><b>${v[1]}</b>: ${v[2]}.<div class="sc-sub">Esempi tuoi: ${v[3]}.</div></div><b class="sc-side">${scT(v[4])}</b></div>`).join('')}</div>
+    <div class="sc-sub mt">${scT('Variazione finanziaria','Finanziaria')} = cambiano soldi, crediti o debiti. ${scT('Variazione economica','Economica')} = c'è un costo o un ricavo.</div></div>
+  <div class="sc-card"><h3>Il ${scT('Mastrino','mastrino')}: un conto disegnato a T</h3><div class="sc-sub">Il conto Banca c/c dopo quattro operazioni dei fumetti.</div>
+    <div class="sc-tn">Banca c/c Intesa</div>
+    <div class="sc-tt"><div><div class="sc-sub">Dare (entrate)</div><div class="sc-row"><span>Stipendio</span><span class="m num">${C.eur2(2200)}</span></div></div>
+      <div><div class="sc-sub">Avere (uscite)</div><div class="sc-row"><span>Spesa Prix</span><span class="m num">${C.eur2(85)}</span></div><div class="sc-row"><span>Acquisto IG32</span><span class="m num">${C.eur2(448.05)}</span></div><div class="sc-row"><span>Rata Compass</span><span class="m num">${C.eur2(87.42)}</span></div></div></div>
+    <div class="sc-row tot"><span>${scT('Saldo')} dare (in banca ti restano)</span><span class="m num">${C.eur2(2200-85-448.05-87.42)}</span></div></div>
+  <div class="sc-card"><h3>${scT('Permutativa','Permutativa')} o ${scT('Modificativa','modificativa')}?</h3>
+    <div class="sc-rules">${rule('Permutativa: la ricchezza non cambia','Compri IG32, versi un PAC, restituisci una rata: scambi un valore con un altro. Nessun costo, nessun ricavo.')}
+    ${rule('Modificativa: la ricchezza cambia','Stipendio, spesa, bolletta, interessi: c\'è un costo o un ricavo. Sono le uniche che entrano nel conto economico.')}</div>
+    <div class="sc-sub mt">Nel cruscotto, la scheda Conti &amp; bilancio mette le permutative tra gli «spostamenti»: per questo non le conta come spese.</div></div>
+  <div class="sc-card"><h3>Glossario</h3><div class="sc-gl">${Object.entries(SC_DEF).filter(([k])=>!/^V[FE]/.test(k)).map(([k,v])=>`<div><b>${scEsc(k)}</b>: ${scEsc(v)}</div>`).join('')}</div></div>`;
+}
+function scFumetti(C){
+  return `<div class="sc-card"><h3>Dario e Avelina</h3><div class="sc-sub">Dario sta sempre a sinistra, in ${scT('Dare')}. Avelina sempre a destra, in ${scT('Avere')}. Sette casi presi dalla tua vita, dal più facile al più da esame.</div></div>`+
+  scStrips(C).map((s,i)=>`<div class="sc-card"><div class="sc-num">Caso ${i+1} di 7</div><h3>${s.t}</h3>
+    <div class="sc-strip">${s.p.map(p=>scPanel(p[0],p[1])).join('')}</div>
+    <div class="sc-sub">La scrittura nel ${scT('Libro giornale','libro giornale')}:</div>${scEntry(s.e,C,s.d1||'')}${s.e2?scEntry(s.e2,C,s.d2||''):''}
+    <div class="sc-note">${s.n}</div></div>`).join('');
+}
+const SC_WHY = {
+  bank:{D:'entrano soldi in banca', A:'escono soldi dalla banca'},
+  card:{D:'il debito verso la carta si riduce', A:'nasce un debito verso la carta: lo pagherai con il saldo del mese dopo'},
+  pp:{D:'entrano soldi su PayPal', A:'escono soldi da PayPal'},
+  debt:{D:'un debito si riduce: devi meno', A:'nasce o cresce un debito'},
+  asset:{D:'aumenta qualcosa che possiedi', A:'diminuisce qualcosa che possiedi'},
+  imm:{D:'compri un bene che dura anni: è un\'immobilizzazione, non un costo del mese', A:'esce un bene durevole'},
+  own:{D:'arrivano soldi da un altro conto tuo', A:'sposti soldi verso un altro conto tuo'},
+  cost:{D:'è un costo: ricchezza consumata', A:'è il rimborso di una spesa: il costo si storna in Avere'},
+  rev:{D:'si storna un ricavo', A:'è un ricavo: ricchezza guadagnata'},
+  nd:{D:'ancora da classificare', A:'ancora da classificare'},
+};
+const scK = t => (t==='cost'||t==='rev') ? 'e' : 'f';
+function scMovimenti(C){
+  const J = C.journal;
+  if(!J || !J.length) return `<div class="sc-card"><h3>I tuoi movimenti</h3><div class="sc-sub">${C.where==='tel'?'I movimenti arrivano dal PC: apri il DC_Asset Engine, scheda Conti &amp; bilancio, e premi Aggiorna tutto.':'Carica gli estratti in Conti &amp; bilancio: qui li vedrai scritti in partita doppia.'}</div></div>`;
+  return `<div class="sc-card"><h3>I tuoi movimenti in ${scT('Partita doppia','partita doppia')}</h3><div class="sc-sub">Gli ultimi movimenti veri di conto, carta e PayPal, scritti come nel ${scT('Libro giornale','libro giornale')}. Tocca un movimento per leggere il perché di ogni lato.</div></div>`+
+   J.map(j=>{ const rows=j.lines.map(l=>[l.s,l.acc,l.a,scK(l.t)]); const perm=!j.lines.some(l=>scK(l.t)==='e');
+     const why=j.lines.slice().sort((a,b)=>a.s<b.s?1:-1).map(l=>`<div>• <b>${scEsc(l.acc)}</b> in ${l.s==='D'?'Dare':'Avere'}: ${(SC_WHY[l.t]||SC_WHY.nd)[l.s]} (${scTag(l.s,scK(l.t))}).</div>`).join('');
+     const dd=j.d? j.d.split('-').reverse().join('/') : '';
+     return `<div class="sc-card sc-jr"><div class="sc-jh"><b>${scEsc(j.desc||'movimento')}</b><span class="sc-badge">${perm?'permutativa':'modificativa'}</span></div>
+       ${scEntry(rows,C,dd)}<div class="sc-why">${why}<div class="sc-sub" style="margin-top:4px">${perm?'Nessun costo né ricavo: la ricchezza non cambia.':'C\'è un costo o un ricavo: la ricchezza cambia ed entra nel conto economico.'}</div></div></div>`; }).join('');
+}
+function scBilancio(C){
+  const S=C.sum, att=(C.cls||[]).reduce((a,x)=>a+x.v,0), deb=S?.resid||0, pn=att-deb;
+  const row=(l,v,cl='')=>`<div class="sc-row ${cl}"><span>${l}</span><span class="m num">${C.eur(v)}</span></div>`;
+  let h = `<div class="sc-card"><h3>Il tuo ${scT('Stato patrimoniale','stato patrimoniale')}</h3><div class="sc-sub">La fotografia di oggi. A sinistra cosa possiedi (${scT('Attività','attività')}), a destra cosa devi (${scT('Passività','passività')}) e cosa resta tuo (${scT('Patrimonio netto','patrimonio netto')}).</div>
+    <div class="sc-bil mt"><div><div class="sc-sub"><b>Attività</b> · impieghi</div>${(C.cls||[]).map(x=>row(scEsc(x.label),x.v)).join('')}${row('Totale attività',att,'tot')}</div>
+      <div><div class="sc-sub"><b>Passività e netto</b> · fonti</div>${row('Debiti residui (finanziamenti)',deb)}${row('Patrimonio netto',pn)}${row('Totale a pareggio',deb+pn,'tot')}</div></div>
+    <div class="sc-note">Attività = passività + patrimonio netto: è la stessa uguaglianza «Dare = Avere», vista su tutto il bilancio. Previdenza e TFR restano fuori: sono tuoi ma vincolati fino alla pensione.</div></div>`;
+  if(!S) return h + `<div class="sc-card"><h3>Il tuo ${scT('Conto economico','conto economico')}</h3><div class="sc-sub">Arriva quando ci sono i movimenti del conto (Conti &amp; bilancio).</div></div>`;
+  h += `<div class="sc-card"><h3>Il tuo ${scT('Conto economico','conto economico')}</h3><div class="sc-sub">Il film del periodo ${scEsc(S.period||'')}, media al mese. Criterio: ${S.mode==='comp'?scT('Competenza','competenza')+' (le spese annuali divise su 12 mesi)':scT('Cassa','cassa')+' (quando escono o entrano i soldi)'}.</div>
+    <div class="sc-bil mt"><div><div class="sc-sub"><b>Costi</b> · in Dare (VE−)</div>${(S.cats||[]).slice(0,8).map(x=>row(scEsc(x.l),x.avg)).join('')}${row('Totale costi',S.avgU,'tot')}</div>
+      <div><div class="sc-sub"><b>Ricavi</b> · in Avere (VE+)</div>${row('Entrate del mese',S.avgE)}${row('Totale ricavi',S.avgE,'tot')}</div></div>
+    <div class="sc-row tot"><span>${scT('Utile','Utile')} del mese (per te: risparmio)</span><span class="m num">${C.eur(S.avgR)}</span></div>
+    <div class="sc-note">Investimenti e rate dei debiti qui non compaiono: sono ${scT('Permutativa','permutative')}, spostano valori senza consumarli. Gli interessi sì: sono un costo.</div></div>`;
+  return h;
+}
+const SC_QUIZ = [
+  ["Arriva lo stipendio sul conto Intesa. Il conto <b>Banca c/c</b> va in…", ['Dare','Avere'], 0, "Entrano soldi: è una variazione finanziaria attiva (VF+), quindi Dare."],
+  ["Sempre lo stipendio: il conto <b>Stipendi</b> va in…", ['Dare','Avere'], 1, "Lo stipendio è un ricavo, ricchezza guadagnata: variazione economica positiva (VE+), quindi Avere."],
+  ["Paghi la bolletta Enel di 95 € dal conto. Il conto <b>Casa: luce e gas</b> va in…", ['Dare','Avere'], 0, "È un costo, ricchezza consumata: variazione economica negativa (VE−), quindi Dare."],
+  ["Il PAC su EXUS da 200 € è un costo?", ['Sì, è una spesa','No, è una permutativa'], 1, "Scambi 200 € di soldi con 200 € di titoli: la ricchezza non cambia. Titoli in Dare, banca in Avere, nessun costo."],
+  ["Restituisci 350 € del prestito di famiglia (senza interessi). Il conto <b>Debiti v/famiglia</b> va in…", ['Dare','Avere'], 0, "Il debito si riduce: devi meno, è una variazione finanziaria attiva (VF+). Quindi Dare. Senza interessi non c'è nessun costo."],
+  ["Paghi la cena con la carta di credito. Il conto <b>Debiti v/carta</b> va in…", ['Dare','Avere'], 1, "Nasce un debito verso la carta: variazione finanziaria passiva (VF−), quindi Avere. La banca si muoverà solo con l'addebito del saldo."],
+  ["Arriva il rimborso del 730. Il conto <b>Rimborsi fiscali</b> va in…", ['Dare','Avere'], 1, "Per te è un ricavo, una ricchezza in più: variazione economica positiva (VE+), quindi Avere. La banca, che sale, va in Dare."],
+  ["Hai pagato 480 € di assicurazione il 1° ottobre per 12 mesi. Al 31 dicembre i 360 € dei mesi futuri diventano…", ['Risconto attivo','Rateo passivo'], 0, "Un costo già pagato che appartiene al futuro è un risconto attivo (Dare). Il rateo è il contrario: costo di quest'anno che pagherai dopo."],
+  ["Nella rata del finanziamento Intesa ci sono 4 € di interessi. Quei 4 € sono…", ['Un costo (Dare)','Una riduzione del debito'], 0, "Gli interessi sono il prezzo del prestito: un costo, variazione economica negativa (VE−) in Dare. Il resto della rata riduce il debito."],
+  ["Vendi MWRD con una plusvalenza di 400 €. La <b>plusvalenza</b> va in…", ['Dare','Avere'], 1, "Hai guadagnato più di quanto avevi pagato: la plusvalenza è un ricavo (VE+), quindi Avere."],
+  ["Ricevi 600 € di risarcimento da Prima Assicurazioni. La banca va in Dare. E il risarcimento?", ['Dare','Avere'], 1, "È un ricavo, entra ricchezza: variazione economica positiva (VE+), in Avere."],
+  ["Compri mobili per 3.000 € per la casa. Nell'anno dell'acquisto il costo è…", ['3.000 € tutto subito','Solo la quota di ammortamento'], 1, "I mobili sono un'immobilizzazione: ogni anno si scrive come costo solo la quota consumata, l'ammortamento (es. 300 € l'anno per 10 anni)."],
+];
+function scQuiz(){
+  if(!SC.qs){ SC.qs = SC_QUIZ.map((q,i)=>i).sort(()=>Math.random()-.5); SC.qi=0; SC.ok=0; SC.ans=null; SC.done=false; }
+  if(SC.done) return `<div class="sc-card sc-q"><h3>Quiz finito: ${SC.ok} su ${SC_QUIZ.length}</h3><div class="sc-sub">${SC.ok>=10?'Dare e Avere ormai li hai in mano.':SC.ok>=7?'Ottima base: ripassa i casi sbagliati nei fumetti.':'Riguarda «Le regole» e i fumetti, poi riprova: le domande cambiano ordine.'}</div><button class="sc-btn mt" data-sc="restart">Ricomincia</button></div>`;
+  const q = SC_QUIZ[SC.qs[SC.qi]];
+  return `<div class="sc-card sc-q"><div class="sc-num">Domanda ${SC.qi+1} di ${SC_QUIZ.length} · giuste ${SC.ok}</div><h3 style="font-weight:600">${q[0]}</h3>
+    ${q[1].map((o,i)=>`<button class="opt ${SC.ans!=null?(i===q[2]?'ok':(i===SC.ans?'ko':'')):''}" data-sc-o="${i}" ${SC.ans!=null?'disabled':''}>${o}</button>`).join('')}
+    ${SC.ans!=null?`<div class="sc-note"><b>${SC.ans===q[2]?'Giusto.':'Non proprio.'}</b> ${q[3]}</div><button class="sc-btn mt" data-sc="next">${SC.qi+1<SC_QUIZ.length?'Avanti':'Vedi il risultato'}</button>`:''}</div>`;
+}
+const SC_TABS = [['regole','Le regole'],['fumetti','Fumetti'],['mov','I tuoi movimenti'],['bil','Il tuo bilancio'],['quiz','Quiz']];
+function scCss(){ if(document.getElementById('scCss')) return; const s=document.createElement('style'); s.id='scCss'; s.textContent=`
+.sc-head{margin:0 0 12px}.sc-head h2{margin:0;font-size:21px}.sc-head .sc-sub{margin-top:2px}
+.sc-seg{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.sc-seg button{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:7px 13px;font-weight:700;font-size:13px;cursor:pointer;color:var(--text)}
+.sc-seg button.on{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent)}
+.sc-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.sc-card h3{margin:0 0 4px;font-size:17px}
+.sc-sub{color:var(--muted);font-size:13px;line-height:1.45}.sc-root .mt{margin-top:10px}
+.sc-t{border-bottom:1.5px dotted var(--accent);cursor:help;font-weight:600;white-space:nowrap}
+.sc-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0}
+.sc-p{display:flex;gap:8px;align-items:flex-start;background:var(--surface-2,var(--surface));border:2px solid var(--border);border-radius:14px;padding:10px}
+.sc-who{flex:0 0 60px;text-align:center;color:var(--text)}.sc-who small{display:block;font-size:10px;color:var(--muted);line-height:1.15;margin-top:1px}
+.sc-ch{width:58px;height:62px;display:block;margin:0 auto}
+.sc-b{flex:1;background:var(--surface);color:var(--text);border:1.5px solid var(--text);border-radius:14px;padding:8px 10px;font-size:13.5px;line-height:1.42;position:relative}
+.sc-b:before{content:'';position:absolute;left:-8px;top:16px;border:7px solid transparent;border-right-color:var(--text);border-left:0}
+.sc-num{font-size:12px;font-weight:800;color:var(--accent);margin-bottom:2px;letter-spacing:.02em}
+.sc-je{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:8px;background:var(--surface)}
+.sc-je .hd{display:grid;grid-template-columns:1fr 1fr;background:var(--accent-soft);font-weight:800;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.sc-je .hd>div{padding:6px 10px}.sc-je .hd .sc-t{border-bottom-color:currentColor}
+.sc-je .bd{display:grid;grid-template-columns:1fr 1fr}
+.sc-je .col{padding:6px 10px;display:flex;flex-direction:column;gap:5px}.sc-je .col+.col{border-left:1px dashed var(--border)}
+.sc-l{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;align-items:baseline}
+.sc-tag{font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:999px;margin-left:5px;border-bottom:0!important;white-space:nowrap}
+.sc-tag.f{background:color-mix(in srgb,var(--s-bond) 40%,transparent)}.sc-tag.e{background:color-mix(in srgb,var(--s-equity) 40%,transparent)}
+.sc-date{font-size:12px;color:var(--muted);padding:5px 10px;border-bottom:1px solid var(--border)}
+.sc-ok{color:var(--good);font-weight:700;font-size:12px;padding:5px 10px;border-top:1px solid var(--border)}
+.sc-note{margin-top:10px;font-size:13px;line-height:1.45;padding:9px 12px;border-radius:12px;background:var(--surface-2,var(--surface));border-left:3px solid var(--accent)}
+.sc-why{font-size:12.8px;line-height:1.5;padding:8px 2px 0;display:none}.sc-jr.open .sc-why{display:block}
+.sc-jr{cursor:pointer;padding:14px}.sc-jh{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.sc-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-3,var(--border));white-space:nowrap;align-self:flex-start}
+.sc-tn{text-align:center;font-weight:800;margin-top:12px}
+.sc-tt{display:grid;grid-template-columns:1fr 1fr;border-top:2.5px solid var(--text);margin-top:4px}
+.sc-tt>div{padding:6px 10px;font-size:13px}.sc-tt>div:first-child{border-right:2.5px solid var(--text)}
+.sc-bil{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.sc-bil>div{padding:10px 12px}.sc-bil>div+div{border-left:1px solid var(--border)}
+.sc-row{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;padding:3px 0}
+.sc-row.tot{border-top:1px solid var(--border);margin-top:6px;padding-top:7px;font-weight:800}
+.sc-rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.sc-rule{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface-2,var(--surface));font-size:13.5px;line-height:1.45}.sc-rule b{display:block;margin-bottom:3px}
+.sc-vt{display:flex;flex-direction:column;gap:8px}
+.sc-v{display:grid;grid-template-columns:58px 1fr auto;gap:10px;align-items:center;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:12px}
+.sc-v .sc-tag{margin:0;text-align:center;font-size:12px;padding:4px 6px}.sc-side{font-size:13px}
+.sc-gl{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 16px;font-size:13px;line-height:1.45}
+.sc-q button.opt{display:block;width:100%;text-align:left;margin:7px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2,var(--surface));color:var(--text);font-weight:600;font-size:14px;cursor:pointer}
+.sc-q button.opt.ok{border-color:var(--good);background:color-mix(in srgb,var(--good) 20%,var(--surface))}
+.sc-q button.opt.ko{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 20%,var(--surface))}
+.sc-btn{border:0;background:var(--accent);color:var(--accent-ink,#fff);font-weight:700;border-radius:999px;padding:9px 18px;cursor:pointer;font-size:14px}
+#scPop{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));width:min(560px,92vw);background:var(--text);color:var(--bg);padding:12px 14px;border-radius:14px;font-size:13.5px;line-height:1.45;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.3);display:none;cursor:pointer}
+#scPop.on{display:block}#scPop b{color:var(--bg)}
+@media (max-width:520px){.sc-card{padding:14px}.sc-l{font-size:12.5px}.sc-je .col{padding:6px 8px}.sc-v{grid-template-columns:50px 1fr auto}}`;
+  document.head.appendChild(s); }
+function scPop(t){ let p=document.getElementById('scPop'); if(!p){ p=document.createElement('div'); p.id='scPop'; document.body.appendChild(p); p.onclick=()=>p.classList.remove('on'); }
+  p.innerHTML=`<b>${scEsc(t)}</b>: ${scEsc(SC_DEF[t]||'')}`; p.classList.add('on'); clearTimeout(scPop.t); scPop.t=setTimeout(()=>p.classList.remove('on'),9000); }
+function scuolaRender(root, C){
+  if(!root) return; scCss(); root.classList.add('sc-root');
+  const body = SC.tab==='regole'?scRegole(C):SC.tab==='fumetti'?scFumetti(C):SC.tab==='mov'?scMovimenti(C):SC.tab==='bil'?scBilancio(C):scQuiz();
+  root.innerHTML = `<div class="sc-head"><h2>Scuola di partita doppia</h2><div class="sc-sub">${scT('Dare')} e ${scT('Avere')} imparati sui tuoi soldi veri. Le parole sottolineate si toccano: ti dicono sempre cosa significano.</div></div>
+    <div class="sc-seg">${SC_TABS.map(([k,l])=>`<button data-sc-tab="${k}" class="${SC.tab===k?'on':''}">${l}</button>`).join('')}</div>${body}`;
+  root.onclick = e => {
+    const t=e.target.closest('.sc-t'); if(t){ e.stopPropagation(); scPop(t.dataset.t); return; }
+    const b=e.target.closest('[data-sc-tab]'); if(b){ SC.tab=b.dataset.scTab; scuolaRender(root,C); root.scrollIntoView({block:'start'}); return; }
+    const o=e.target.closest('[data-sc-o]'); if(o && SC.ans==null){ SC.ans=+o.dataset.scO; if(SC.ans===SC_QUIZ[SC.qs[SC.qi]][2]) SC.ok++; scuolaRender(root,C); return; }
+    const a=e.target.closest('[data-sc]'); if(a){ if(a.dataset.sc==='next'){ SC.ans=null; if(SC.qi+1<SC_QUIZ.length) SC.qi++; else SC.done=true; } else if(a.dataset.sc==='restart'){ SC.qs=null; } scuolaRender(root,C); return; }
+    const j=e.target.closest('.sc-jr'); if(j) j.classList.toggle('open');
+  };
+}
+
+/* ---- Scuola: adattatore dell'app (movimenti dal riepilogo Conti cifrato) ---- */
+const fE2s=new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2});
+function scCtxViewer(){ const T=D.totals;
+  const cls=D.classes.filter(c=>c.kind==='inv'||c.kind==='liq').map(c=>({id:c.id,label:c.label,v:T.cls[c.id]||0})).filter(x=>x.v>0.5);
+  return {eur, eur2:v=>v==null?'—':fE2s.format(v), cls, sum:D.conti||null, journal:D.conti?.journal||null, stip:D.conti?.stip||null, where:'tel'}; }
+
 function render(){
   const at=new Date(D.at), pa=D.pricesAt?new Date(D.pricesAt):at;
   $('#stamp').textContent='dati del '+at.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})+' '+at.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' · v'+D.app;
   renderOv(); renderList(); renderHist(); renderCo();
+  try{ scuolaRender($('#scRoot'), scCtxViewer()); }catch(e){ console.warn(e); }
 }
 function renderCo(){
   const C=D.conti;
