@@ -37,7 +37,7 @@ button{font:inherit;color:inherit}
 .wrap{max-width:720px;margin:0 auto;padding:0 16px}
 header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);padding-top:env(safe-area-inset-top)}
 .top{display:flex;align-items:center;gap:10px;height:56px}
-.logo{width:24px;height:24px;border-radius:8px;background:conic-gradient(from 210deg,var(--s-bond),var(--s-crypto),var(--s-jest),var(--s-gold),var(--s-equity),var(--s-ibkr),var(--s-cash),var(--s-bond));box-shadow:inset 0 0 0 5px var(--bg)}
+.logo{width:24px;height:24px;border-radius:7px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%231E2A3B'/%3E%3Cg fill='none' stroke='%23F5F7FA' stroke-width='18' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M134 388V330a20 20 0 0 1 40 0V388'/%3E%3Cpath d='M202 388V296a20 20 0 0 1 40 0V388'/%3E%3Cpath d='M270 388V262a20 20 0 0 1 40 0V388'/%3E%3Cpath d='M338 388V226a20 20 0 0 1 40 0V388'/%3E%3Cpath d='M110 400H402'/%3E%3Cpath d='M118 240Q248 220 352 142' stroke='%238FDCBC'/%3E%3C/g%3E%3Cpath d='M396 112L370 166L336 120Z' fill='%238FDCBC' stroke='%238FDCBC' stroke-width='10' stroke-linejoin='round'/%3E%3C/svg%3E") center/cover no-repeat}
 .brand{font-weight:800;letter-spacing:-.2px}
 .spacer{flex:1}
 .ib{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;cursor:pointer}
@@ -108,7 +108,7 @@ body.priv .m{filter:blur(7px);user-select:none}
 /* lock */
 #lock{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:24px}
 #lock .box{width:min(380px,100%);text-align:center}
-#lock .logo{width:56px;height:56px;border-radius:18px;margin:0 auto 14px;box-shadow:inset 0 0 0 11px var(--bg)}
+#lock .logo{width:56px;height:56px;border-radius:14px;margin:0 auto 14px}
 #lock input[type=password]{width:100%;font:inherit;font-size:17px;padding:13px 14px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);margin:18px 0 10px}
 #lock label{display:flex;gap:8px;justify-content:center;font-size:13.5px;color:var(--text-2);margin-bottom:14px}
 #lock .btn{width:100%;padding:13px}
