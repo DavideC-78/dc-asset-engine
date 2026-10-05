@@ -355,44 +355,44 @@ function scStrips(C){
   const st = C.stip && C.stip>300 ? Math.round(C.stip*100)/100 : 2200, e2 = C.eur2;
   return [
     {t:"Arriva lo stipendio", p:[
-      ['d',`Lo stipendio è arrivato: <b class="m">${e2(st)}</b> in più sul conto Intesa.`],
+      ['d',`Lo stipendio è arrivato: <b class="m">${e2(st)}</b> in più sul conto in banca.`],
       ['a',`Succedono due cose nello stesso momento: la banca sale, e hai guadagnato un ${scT('Ricavo','ricavo')}. Due cose, due ${scT('Conto','conti')}.`],
       ['d',`Banca che sale = ${scT('VF+')}, viene da me, in Dare. Lo stipendio è un ricavo = ${scT('VE+')}: va da Avelina, in Avere.`]],
-     e:[['D','Banca c/c Intesa',st,'f'],['A','Stipendi (ricavo)',st,'e']], n:`È una variazione ${scT('Modificativa','modificativa')}: la tua ricchezza è cresciuta.`},
+     e:[['D','Banca c/c',st,'f'],['A','Stipendi (ricavo)',st,'e']], n:`È una variazione ${scT('Modificativa','modificativa')}: la tua ricchezza è cresciuta.`},
     {t:"La spesa al supermercato", p:[
-      ['a',`Spendi <b class="m">${e2(85)}</b> alla Prix: escono soldi dalla banca.`],
+      ['a',`Spendi <b class="m">${e2(85)}</b> al supermercato: escono soldi dalla banca.`],
       ['d',`Quella spesa non torna più: è un ${scT('Costo','costo')}, ricchezza consumata. I costi stanno da me, in Dare (${scT('VE−')}).`],
       ['a',`E la banca che scende è una ${scT('VF−')}: va da me, in Avere.`]],
-     e:[['D','Spesa alimentare (costo)',85,'e'],['A','Banca c/c Intesa',85,'f']], n:`Modificativa: la tua ricchezza è scesa di 85 €.`},
-    {t:"Comprare IG32 non è una spesa", p:[
-      ['d',`Hai comprato 87 quote di IG32 su Scalable per <b class="m">${e2(448.05)}</b>.`],
+     e:[['D','Spesa alimentare (costo)',85,'e'],['A','Banca c/c',85,'f']], n:`Modificativa: la tua ricchezza è scesa di 85 €.`},
+    {t:"Comprare ETF non è una spesa", p:[
+      ['d',`Hai comprato 100 quote di un ETF obbligazionario sul tuo broker per <b class="m">${e2(520)}</b>.`],
       ['a',`Sembra una spesa, ma i soldi non sono spariti: sono diventati titoli. Hai scambiato un valore con un altro.`],
       ['d',`È una ${scT('Permutativa','permutativa')}: nessun costo. Titoli che salgono = ${scT('VF+')} in Dare; banca che scende = ${scT('VF−')} in Avere.`]],
-     e:[['D','Titoli IG32 (attività)',448.05,'f'],['A','Banca c/c (Scalable)',448.05,'f']], n:`Per questo nel cruscotto i PAC non sono «spese»: stanno tra gli spostamenti.`},
+     e:[['D','Titoli ETF (attività)',520,'f'],['A','Conto del broker',520,'f']], n:`Per questo nel cruscotto i PAC non sono «spese»: stanno tra gli spostamenti.`},
     {t:"Il ristorante con la carta di credito", p:[
       ['a',`Ceni fuori con la carta di credito: <b class="m">${e2(60)}</b>. Oggi la banca non si muove!`],
       ['d',`Però il costo c'è già: Ristoranti in Dare (${scT('VE−')}). E nasce un ${scT('Debito','debito')} verso la carta: un debito che nasce è una ${scT('VF−')}, in Avere.`],
-      ['a',`Il mese dopo Intesa addebita il saldo della carta: il debito si chiude (Dare) e la banca scende (Avere). Nessun costo nuovo: l'avevi già scritto.`]],
+      ['a',`Il mese dopo la banca addebita il saldo della carta: il debito si chiude (Dare) e la banca scende (Avere). Nessun costo nuovo: l'avevi già scritto.`]],
      e:[['D','Ristoranti e bar (costo)',60,'e'],['A','Debiti v/carta di credito',60,'f']],
-     e2:[['D','Debiti v/carta di credito',60,'f'],['A','Banca c/c Intesa',60,'f']], d1:'giorno della cena', d2:'addebito del saldo carta, il mese dopo',
+     e2:[['D','Debiti v/carta di credito',60,'f'],['A','Banca c/c',60,'f']], d1:'giorno della cena', d2:'addebito del saldo carta, il mese dopo',
      n:`Due scritture in due giorni diversi: è il motivo per cui il cruscotto mette l'addebito del saldo carta tra i movimenti interni.`},
     {t:"La rata del finanziamento", p:[
-      ['d',`Paghi la rata Compass del tapis roulant: <b class="m">${e2(87.42)}</b>.`],
+      ['d',`Paghi la rata della finanziaria per la lavatrice: <b class="m">${e2(92.5)}</b>.`],
       ['a',`La rata non è una spesa: la spesa l'hai fatta il giorno dell'acquisto. Ora stai restituendo un ${scT('Debito','debito')}.`],
       ['d',`Debito che scende = ${scT('VF+')}, in Dare: devi meno, è come avere di più. Banca che scende = ${scT('VF−')}, in Avere. Se nella rata ci sono interessi, solo quella parte è un costo (${scT('VE−')}).`]],
-     e:[['D','Debiti v/Compass',87.42,'f'],['A','Banca c/c Intesa',87.42,'f']], n:`Permutativa: meno soldi, ma anche meno debiti. La ricchezza non cambia (a parte gli eventuali interessi).`},
+     e:[['D','Debiti v/finanziaria',92.5,'f'],['A','Banca c/c',92.5,'f']], n:`Permutativa: meno soldi, ma anche meno debiti. La ricchezza non cambia (a parte gli eventuali interessi).`},
     {t:"L'assicurazione auto e il risconto", p:[
       ['a',`Il 1° ottobre paghi l'assicurazione auto: <b class="m">${e2(480)}</b> per un anno intero.`],
       ['d',`Al 31 dicembre si chiude l'anno: dei 12 mesi pagati ne hai usati solo 3. Gli altri 9, cioè <b class="m">${e2(360)}</b>, sono costo dell'anno dopo.`],
       ['a',`Quella parte si rimanda con un ${scT('Risconto attivo','risconto attivo')}: un costo già pagato che appartiene al futuro. È il criterio di ${scT('Competenza','competenza')}, lo stesso che il cruscotto usa quando divide l'assicurazione su 12 mesi.`]],
-     e:[['D','Assicurazioni auto (costo)',480,'e'],['A','Banca c/c Intesa',480,'f']],
+     e:[['D','Assicurazioni auto (costo)',480,'e'],['A','Banca c/c',480,'f']],
      e2:[['D','Risconti attivi',360,'f'],['A','Assicurazioni auto (costo)',360,'e']], d1:'1° ottobre: pagamento', d2:'31 dicembre: rinvio della parte futura',
      n:`Risultato: nel conto economico dell'anno restano 120 € di costo, cioè 3 mesi su 12. Il contrario del risconto è il ${scT('Rateo','rateo')}.`},
     {t:"I mobili della ristrutturazione", p:[
       ['d',`Compri mobili per <b class="m">${e2(3000)}</b> (esempio). Durano anni: non sono il costo di un mese solo.`],
       ['a',`Diventano un'${scT('Immobilizzazione','immobilizzazione')}, un bene che resta. Ogni anno se ne consuma un pezzo: l'${scT('Ammortamento','ammortamento')}, per esempio 3.000 ÷ 10 anni = 300 € all'anno.`],
       ['d',`E la detrazione del 50% è un ${scT('Credito','credito')} verso lo Stato: 1.500 € che ti torneranno in 10 anni col 730. Un credito che nasce sta in Dare.`]],
-     e:[['D','Mobili (immobilizzazione)',3000,'f'],['A','Banca c/c Intesa',3000,'f']],
+     e:[['D','Mobili (immobilizzazione)',3000,'f'],['A','Banca c/c',3000,'f']],
      e2:[['D','Ammortamento mobili (costo)',300,'e'],['A','Fondo ammortamento mobili',300,'f']], d1:'giorno dell\'acquisto', d2:'31 dicembre di ogni anno, per 10 anni',
      n:`Il ${scT('Fondo ammortamento','fondo ammortamento')} va in Avere perché riduce il valore del bene: dopo 10 anni i mobili valgono 0 in bilancio.`},
   ];
@@ -400,7 +400,7 @@ function scStrips(C){
 function scRegole(C){
   const rule=(b,t)=>`<div class="sc-rule"><b>${b}</b>${t}</div>`;
   const V=[['VF+','Variazione finanziaria attiva','entrano soldi, nasce un credito, cala un debito','stipendio sul conto, rata che riduce il debito','Dare'],
-           ['VF−','Variazione finanziaria passiva','escono soldi, nasce un debito, cala un credito','bonifico a Scalable, spesa con la carta di credito','Avere'],
+           ['VF−','Variazione finanziaria passiva','escono soldi, nasce un debito, cala un credito','bonifico al broker, spesa con la carta di credito','Avere'],
            ['VE−','Variazione economica negativa','un costo: ricchezza consumata','spesa, bollette, interessi','Dare'],
            ['VE+','Variazione economica positiva','un ricavo: ricchezza guadagnata','stipendio, rimborso 730, risarcimento','Avere']];
   return `<div class="sc-card"><h3>Le regole in quattro righe</h3><div class="sc-sub">Tocca le parole sottolineate: ti ricordano cosa vogliono dire, ogni volta.</div>
@@ -412,12 +412,12 @@ function scRegole(C){
     <div class="sc-vt mt">${V.map(v=>`<div class="sc-v"><span class="sc-tag ${v[0][1]==='F'?'f':'e'}">${scT(v[0])}</span><div><b>${v[1]}</b>: ${v[2]}.<div class="sc-sub">Esempi tuoi: ${v[3]}.</div></div><b class="sc-side">${scT(v[4])}</b></div>`).join('')}</div>
     <div class="sc-sub mt">${scT('Variazione finanziaria','Finanziaria')} = cambiano soldi, crediti o debiti. ${scT('Variazione economica','Economica')} = c'è un costo o un ricavo.</div></div>
   <div class="sc-card"><h3>Il ${scT('Mastrino','mastrino')}: un conto disegnato a T</h3><div class="sc-sub">Il conto Banca c/c dopo quattro operazioni dei fumetti.</div>
-    <div class="sc-tn">Banca c/c Intesa</div>
+    <div class="sc-tn">Banca c/c</div>
     <div class="sc-tt"><div><div class="sc-sub">Dare (entrate)</div><div class="sc-row"><span>Stipendio</span><span class="m num">${C.eur2(2200)}</span></div></div>
-      <div><div class="sc-sub">Avere (uscite)</div><div class="sc-row"><span>Spesa Prix</span><span class="m num">${C.eur2(85)}</span></div><div class="sc-row"><span>Acquisto IG32</span><span class="m num">${C.eur2(448.05)}</span></div><div class="sc-row"><span>Rata Compass</span><span class="m num">${C.eur2(87.42)}</span></div></div></div>
-    <div class="sc-row tot"><span>${scT('Saldo')} dare (in banca ti restano)</span><span class="m num">${C.eur2(2200-85-448.05-87.42)}</span></div></div>
+      <div><div class="sc-sub">Avere (uscite)</div><div class="sc-row"><span>Spesa supermercato</span><span class="m num">${C.eur2(85)}</span></div><div class="sc-row"><span>Acquisto ETF</span><span class="m num">${C.eur2(520)}</span></div><div class="sc-row"><span>Rata finanziaria</span><span class="m num">${C.eur2(92.5)}</span></div></div></div>
+    <div class="sc-row tot"><span>${scT('Saldo')} dare (in banca ti restano)</span><span class="m num">${C.eur2(2200-85-520-92.5)}</span></div></div>
   <div class="sc-card"><h3>${scT('Permutativa','Permutativa')} o ${scT('Modificativa','modificativa')}?</h3>
-    <div class="sc-rules">${rule('Permutativa: la ricchezza non cambia','Compri IG32, versi un PAC, restituisci una rata: scambi un valore con un altro. Nessun costo, nessun ricavo.')}
+    <div class="sc-rules">${rule('Permutativa: la ricchezza non cambia','Compri ETF, versi un PAC, restituisci una rata: scambi un valore con un altro. Nessun costo, nessun ricavo.')}
     ${rule('Modificativa: la ricchezza cambia','Stipendio, spesa, bolletta, interessi: c\'è un costo o un ricavo. Sono le uniche che entrano nel conto economico.')}</div>
     <div class="sc-sub mt">Nel cruscotto, la scheda Conti &amp; bilancio mette le permutative tra gli «spostamenti»: per questo non le conta come spese.</div></div>
   <div class="sc-card"><h3>Glossario</h3><div class="sc-gl">${Object.entries(SC_DEF).filter(([k])=>!/^V[FE]/.test(k)).map(([k,v])=>`<div><b>${scEsc(k)}</b>: ${scEsc(v)}</div>`).join('')}</div></div>`;
@@ -468,7 +468,7 @@ function scBilancio(C){
   return h;
 }
 const SC_QUIZ = [
-  ["Arriva lo stipendio sul conto Intesa. Il conto <b>Banca c/c</b> va in…", ['Dare','Avere'], 0, "Entrano soldi: è una variazione finanziaria attiva (VF+), quindi Dare."],
+  ["Arriva lo stipendio sul conto in banca. Il conto <b>Banca c/c</b> va in…", ['Dare','Avere'], 0, "Entrano soldi: è una variazione finanziaria attiva (VF+), quindi Dare."],
   ["Sempre lo stipendio: il conto <b>Stipendi</b> va in…", ['Dare','Avere'], 1, "Lo stipendio è un ricavo, ricchezza guadagnata: variazione economica positiva (VE+), quindi Avere."],
   ["Paghi la bolletta Enel di 95 € dal conto. Il conto <b>Casa: luce e gas</b> va in…", ['Dare','Avere'], 0, "È un costo, ricchezza consumata: variazione economica negativa (VE−), quindi Dare."],
   ["Il PAC su EXUS da 200 € è un costo?", ['Sì, è una spesa','No, è una permutativa'], 1, "Scambi 200 € di soldi con 200 € di titoli: la ricchezza non cambia. Titoli in Dare, banca in Avere, nessun costo."],
@@ -476,7 +476,7 @@ const SC_QUIZ = [
   ["Paghi la cena con la carta di credito. Il conto <b>Debiti v/carta</b> va in…", ['Dare','Avere'], 1, "Nasce un debito verso la carta: variazione finanziaria passiva (VF−), quindi Avere. La banca si muoverà solo con l'addebito del saldo."],
   ["Arriva il rimborso del 730. Il conto <b>Rimborsi fiscali</b> va in…", ['Dare','Avere'], 1, "Per te è un ricavo, una ricchezza in più: variazione economica positiva (VE+), quindi Avere. La banca, che sale, va in Dare."],
   ["Hai pagato 480 € di assicurazione il 1° ottobre per 12 mesi. Al 31 dicembre i 360 € dei mesi futuri diventano…", ['Risconto attivo','Rateo passivo'], 0, "Un costo già pagato che appartiene al futuro è un risconto attivo (Dare). Il rateo è il contrario: costo di quest'anno che pagherai dopo."],
-  ["Nella rata del finanziamento Intesa ci sono 4 € di interessi. Quei 4 € sono…", ['Un costo (Dare)','Una riduzione del debito'], 0, "Gli interessi sono il prezzo del prestito: un costo, variazione economica negativa (VE−) in Dare. Il resto della rata riduce il debito."],
+  ["Nella rata del finanziamento ci sono 4 € di interessi. Quei 4 € sono…", ['Un costo (Dare)','Una riduzione del debito'], 0, "Gli interessi sono il prezzo del prestito: un costo, variazione economica negativa (VE−) in Dare. Il resto della rata riduce il debito."],
   ["Vendi MWRD con una plusvalenza di 400 €. La <b>plusvalenza</b> va in…", ['Dare','Avere'], 1, "Hai guadagnato più di quanto avevi pagato: la plusvalenza è un ricavo (VE+), quindi Avere."],
   ["Ricevi 600 € di risarcimento da Prima Assicurazioni. La banca va in Dare. E il risarcimento?", ['Dare','Avere'], 1, "È un ricavo, entra ricchezza: variazione economica positiva (VE+), in Avere."],
   ["Compri mobili per 3.000 € per la casa. Nell'anno dell'acquisto il costo è…", ['3.000 € tutto subito','Solo la quota di ammortamento'], 1, "I mobili sono un'immobilizzazione: ogni anno si scrive come costo solo la quota consumata, l'ammortamento (es. 300 € l'anno per 10 anni)."],
