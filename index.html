@@ -594,7 +594,7 @@ function renderCo(){
       <div class="sub">${esc(L.cred)} · rata <span class="m">${eur(L.rata)}</span> · ${L.paid}${L.n?' rate su '+L.n:' rate pagate'}${L.end?' · fine '+L.end:''}</div>
       <div class="hzbar lo"><span style="width:${(pr*100).toFixed(1)}%"></span></div>
       ${!L.done&&L.resid!=null?`<div class="sub" style="margin-top:4px">Debito residuo <b class="m">${eur(L.resid)}</b></div>`:''}</div>`; }).join('')||'<div class="sub">Nessun finanziamento.</div>';
-  $('#coFoot').textContent='Estratti Intesa letti il '+new Date(C.at).toLocaleDateString('it-IT')+(C.last?' · ultimo movimento '+new Date(C.last).toLocaleDateString('it-IT'):'');
+  $('#coFoot').textContent='Estratti conto letti il '+new Date(C.at).toLocaleDateString('it-IT')+(C.last?' · ultimo movimento '+new Date(C.last).toLocaleDateString('it-IT'):'');
 }
 const CL=()=>Object.fromEntries(D.classes.map(c=>[c.id,c]));
 function renderOv(){
