@@ -74,6 +74,25 @@ h2{font-size:16px;margin:0 0 4px;letter-spacing:-.2px}
 .perf{background:var(--surface-2);border-radius:10px;padding:5px 9px;font-size:12px}
 .perf small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
 .perf.exp b{color:var(--muted)}
+.pfs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) minmax(0,1.6fr);gap:3px;margin-top:8px}
+.pfs span{display:flex;flex-direction:column;background:var(--surface-2);border-radius:7px;padding:3px 5px;min-width:0}
+.pfs i{font-style:normal;font-size:9px;font-weight:700;letter-spacing:.3px;color:var(--muted);text-transform:uppercase}
+.pfs b{font-size:11.5px;font-weight:750;white-space:nowrap}
+.pfs em{font-style:normal;font-size:10.5px;font-weight:650;white-space:nowrap}
+.pfs .tot{background:color-mix(in srgb,var(--accent) 12%,var(--surface-2))}
+.frl{display:grid;grid-template-columns:auto 1fr auto;gap:7px 10px;align-items:center;font-size:13px;margin-top:8px}
+.frl .fd{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.frl .fd.ok{background:var(--good)} .frl .fd.wa{background:var(--warn)} .frl .fd.ko{background:var(--bad)} .frl .fd.off{background:var(--border)}
+.frl .fh{font-size:11.5px;color:var(--muted);grid-column:2/-1;margin-top:-6px}
+.frl b{font-weight:750}
+.plat{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+.plat .ph{display:flex;align-items:baseline;gap:8px}
+.plat .ph b{font-size:15px}
+.plat .pv{font-size:20px;font-weight:800;margin-left:auto}
+.plat .prow{margin-top:9px}
+.plat .prow .r1{display:flex;justify-content:space-between;gap:8px;font-size:13.5px}
+.plat .bar{height:6px;border-radius:4px;background:var(--surface-2);margin-top:4px;overflow:hidden}
+.plat .bar span{display:block;height:100%;border-radius:4px}
 .hzbar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:6px}
 .hzbar span{display:block;height:100%;border-radius:3px}
 .hzl{font-size:12.5px;color:var(--text-2);margin-top:10px}
@@ -162,11 +181,13 @@ body.priv .m{filter:blur(7px);user-select:none}
         <div class="kpi"><small>Liquidità</small><b class="num m" id="kLiq"></b><div class="sub num" id="kLiqP"></div></div>
       </div>
     </div>
+    <div class="card" id="freshCard"></div>
     <div class="card">
       <h2>Come è diviso</h2>
       <div class="stack" id="stack"></div>
       <div class="leg" id="leg"></div>
     </div>
+    <div class="card" id="platCard"></div>
     <div class="card">
       <div class="row"><h2>Negli anni</h2><span class="spacer"></span><div class="seg" id="segScale"><button data-s="log" class="on">Log</button><button data-s="lin">Lineare</button></div></div>
       <div class="sub" style="margin-bottom:8px">Fine anno; l'ultimo è il valore di oggi. I punti sono i target.</div>
@@ -566,7 +587,7 @@ function scCtxViewer(){ const T=D.totals;
 function render(){
   const at=new Date(D.at), pa=D.pricesAt?new Date(D.pricesAt):at;
   $('#stamp').textContent='dati del '+at.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})+' '+at.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+' · v'+D.app;
-  renderOv(); renderList(); renderHist(); renderCo();
+  renderOv(); renderFresh(); renderPlats(); renderList(); renderHist(); renderCo();
   try{ scuolaRender($('#scRoot'), scCtxViewer()); }catch(e){ console.warn(e); }
 }
 function renderCo(){
@@ -635,11 +656,52 @@ function stress(){
   $('#stressOut').innerHTML=`<div class="kpis"><div class="kpi"><small>Dopo il crollo</small><b class="num m">${eur(T.total-loss)}</b></div><div class="kpi"><small>Perdita sulla carta</small><b class="num neg m">−${eur(loss).replace('−','')}</b><div class="sub">${pct(-loss/T.total)}</div></div></div>
     <div class="note">Nel 2008 le Borse mondiali hanno perso circa il 50% e ci hanno messo alcuni anni a recuperare. Chi non ha venduto ha recuperato tutto. La liquidità serve proprio a non dover vendere nel momento peggiore.</div>`;
 }
+/* ===== v2.7.1: andamento, date dei dati, piattaforme (dati dall'engine; i prezzi li aggiorna lo script serale) ===== */
+const PF_COLS=[['d1','1G'],['m1','1M'],['m3','3M'],['y1','1A'],['y3','3A']];
+function pStrip(p, v){
+  if(p.qty==null || p.classId==='out') return '';
+  const P=Object.assign({}, p.perf||{}); if(p.pmc>0 && p.price>0) P.tot=p.price/p.pmc-1;   // Tot sempre col prezzo piu' recente
+  if(!Object.values(P).some(x=>x!=null)) return '';
+  const c=x=>x==null?'<b class="sub">—</b>':`<b class="${cls(x)}">${pct(x)}</b>`;
+  const g = P.tot!=null && v!=null ? v - v/(1+P.tot) : null;
+  return `<div class="pfs">${PF_COLS.map(([k,l])=>`<span><i>${l}</i>${c(P[k])}</span>`).join('')}<span class="tot"><i>Tot</i>${c(P.tot)}${g!=null?`<em class="${cls(g)} m">${sgn(g)}</em>`:''}</span></div>`; }
+const dd=x=>{ if(!x) return null; const d=/^\d{4}-\d{2}-\d{2}$/.test(x)?new Date(x+'T12:00:00'):new Date(x); return isNaN(d)?null:d; };
+const dm=x=>{ const d=dd(x); return d?d.getDate()+'/'+(d.getMonth()+1):'—'; };
+const ago=x=>{ const d=dd(x); if(!d) return ''; const t=new Date(); t.setHours(0,0,0,0); const d0=new Date(d); d0.setHours(0,0,0,0); const n=Math.round((t-d0)/864e5); return n<=0?'oggi':n===1?'ieri':n+' giorni fa'; };
+const lvl=(x,g,a)=>{ const d=dd(x); if(!d) return 'ko'; const n=(Date.now()-d)/864e5; return n<=g?'ok':n<=a?'wa':'ko'; };
+function renderFresh(){
+  const el=$('#freshCard'); const R=[];
+  const pa=D.pricesAt; R.push(['Prezzi', pa?(ago(pa)==='oggi'?'oggi '+new Date(pa).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}):dm(pa)):'—', D.auto?'aggiornati dal PC ogni sera':'dal PC', pa?lvl(pa,1,3):'ko']);
+  const C=D.conto; if(C && C.d){ const src=C.src==='banca'?'dalla banca, in automatico':C.src==='estratto'?"dall'estratto Intesa":'scritto a mano';
+    R.push(['Conto Intesa', 'al '+dm(C.d)+' · <span class="m">'+eur(C.v)+'</span>', (C.salv>0?'conto <span class="m">'+eur(C.conto)+'</span> + salvadanaio <span class="m">'+eur(C.salv)+'</span> · ':'')+src, lvl(C.d,7,14)]); }
+  const F=D.feeds; if(F){
+    if(F.cc&&F.cc.to) R.push(['Movimenti conto','fino al '+dm(F.cc.to),(F.cc.auto?'dalla banca':'Excel')+' · '+ago(F.cc.to), lvl(F.cc.at||F.cc.to,7,14)]);
+    if(F.card&&F.card.to) R.push(['Carta di credito','fino al '+dm(F.card.to),(F.card.due!=null?'<span class="m">'+eur(F.card.due)+'</span> da addebitare · ':'')+(F.card.auto?'dalla banca':'Excel'), lvl(F.card.at||F.card.to,7,14)]);
+    if(F.pp&&F.pp.to) R.push(['PayPal','fino al '+dm(F.pp.to),F.pp.auto?'da PayPal, in automatico':'file PayPal', lvl(F.pp.at||F.pp.to,7,14)]); }
+  if(D.scal&&D.scal.snapAt) R.push(['Scalable','al '+dm(D.scal.snapAt), D.scal.est?'fotografia + PAC stimati':'fotografia esatta', D.scal.est?'wa':lvl(D.scal.snapAt,35,60)]);
+  R.push(['Directa','ferma dal 2/10','IG32 e MWRD senza PAC','off']);
+  if(D.perfAt) R.push(['Andamento 1G…3A','al '+dm(D.perfAt),'si rinnova quando premi Aggiorna tutto sul PC',lvl(D.perfAt,2,7)]);
+  el.innerHTML=`<h2>Dati aggiornati al</h2><div class="sub">verde fino a 7 giorni · giallo fino a 14 · rosso oltre</div><div class="frl">${R.map(([l,d,h,v])=>`<i class="fd ${v}"></i><span>${l}</span><b class="num">${d}</b><div class="fh">${h}</div>`).join('')}</div>`; }
+function renderPlats(){
+  const el=$('#platCard'); if(!D.plats){ el.style.display='none'; return; } el.style.display='';
+  const P=Object.fromEntries(D.positions.map(p=>[p.id,p])), tot=D.totals.total, C=D.conto;
+  const rows=D.plats.map(pl=>{ let items=pl.items.map(x=>({p:P[x.id], v:((P[x.id]||{}).value||0)*x.w})).filter(x=>x.p && x.v>0.5).sort((a,b)=>b.v-a.v);
+    const ex=pl.ex.map(x=>({p:P[x.id], v:((P[x.id]||{}).value||0)*x.w})).filter(x=>x.p && x.v>0.5);
+    const t=items.reduce((a,x)=>a+x.v,0), et=ex.reduce((a,x)=>a+x.v,0); if(t<0.5) return null;
+    if(C && C.salv>0) items=items.flatMap(x=>x.p.id===C.id && x.v>C.salv ? [{p:x.p,v:x.v-C.salv,lab:'Saldo del conto'},{p:x.p,v:C.salv,lab:'Salvadanaio'}] : [x]);
+    let gT=0,cT=0,dO=0,nD=0; for(const x of items){ if(x.lab||x.p.qty==null) continue; const o=x.p.perf||{}; const tt=x.p.pmc>0&&x.p.price>0?x.p.price/x.p.pmc-1:null; if(tt!=null){ gT+=x.v-x.v/(1+tt); cT+=x.v/(1+tt); } if(o.d1!=null){ dO+=x.v-x.v/(1+o.d1); nD++; } }
+    return {pl, items, ex, t, et, gT, cT, dO, nD}; }).filter(Boolean).sort((a,b)=>b.t-a.t);
+  const pc=x=>(x*100).toLocaleString('it-IT',{maximumFractionDigits:1})+'%';
+  el.innerHTML=`<h2>Dove sono i soldi</h2><div class="sub">Per piattaforma, come nelle app. Tot = guadagno sul tuo prezzo medio di carico.</div>`+rows.map(R=>{
+    const head = R.ex.length ? `<span class="pv num m">${eur(R.t+R.et)}</span></div><div class="sub">tutto il conto, come nell'app · di cui <b class="m">tuoi ${eur(R.t)}</b> (${pc(R.t/tot)}) · ${R.ex.map(x=>esc(x.p.name)+' <span class="m">'+eur(x.v)+'</span>').join(' · ')} fuori perimetro</div>`
+      : `<span class="pv num m">${eur(R.t)}</span></div><div class="sub">${pc(R.t/tot)} del patrimonio${R.pl.k==='Conto corrente'&&C&&C.salv>0?' · come il "patrimonio" dell\'app Intesa':''}</div>`;
+    const perf = R.cT>0||R.nD ? `<div class="sub num">${R.nD?`ultima seduta <b class="${cls(R.dO)} m">${sgn(R.dO)}</b>`:''}${R.nD&&R.cT>0?' · ':''}${R.cT>0?`dal carico <b class="${cls(R.gT)} m">${sgn(R.gT)}</b> (${pct(R.gT/R.cT)})`:''}</div>` : '';
+    return `<div class="plat"><div class="ph"><i class="dot" style="background:var(${R.pl.col})"></i><b>${esc(R.pl.k)}</b>${head}${perf}
+      ${R.items.map(x=>{ const w=x.v/R.t; return `<div class="prow"><div class="r1"><span>${esc(x.lab||(/^Liquidit/.test(x.p.name)?'Liquidità':(x.p.symbol||x.p.name)))}</span><span class="num"><b>${pc(w)}</b> · <span class="m">${eur(x.v)}</span></span></div><div class="bar"><span style="width:${(w*100).toFixed(1)}%;background:var(--s-${x.p.classId})"></span></div>${x.lab?'':pStrip(x.p,x.v)}</div>`; }).join('')}</div>`; }).join(''); }
 function perfs(p){ const o=[]; const h=p.horizon||{};
-  if(p.pmc&&p.price) o.push(`<span class="perf"><small>dall'acquisto</small><b class="${cls(p.price/p.pmc-1)}">${pct(p.price/p.pmc-1)}</b></span>`);
-  if(p.ytd!=null) o.push(`<span class="perf"><small>${new Date().getFullYear()}</small><b class="${cls(p.ytd)}">${pct(p.ytd)}</b></span>`);
+  if(p.ytd!=null) o.push(`<span class="perf"><small>da inizio ${new Date().getFullYear()}</small><b class="${cls(p.ytd)}">${pct(p.ytd)}</b></span>`);
   if(h.rate!=null) o.push(`<span class="perf exp"><small>attesa annua</small><b>${pct(h.rate/100)}</b></span>`);
-  return o.length?`<div class="perfs">${o.join('')}</div>`:''; }
+  return pStrip(p, p.value) + (o.length?`<div class="perfs">${o.join('')}</div>`:''); }
 function compHTML(D2,col){ if(!D2) return '';
   const oth=k=>/^(altri|non noto)/i.test(k);
   const rows=(o,c,max)=>Object.entries(o).sort((a,b)=>(oth(a[0])-oth(b[0]))||b[1]-a[1]).map(([k,v])=>`<div class="cr"><div>${esc(k)}</div><div class="r num">${v.toLocaleString('it-IT',{maximumFractionDigits:2})}%</div><div class="bar"><span style="width:${Math.min(100,v/(max||Math.max(...Object.values(o)))*100).toFixed(1)}%;background:${c}"></span></div></div>`).join('');
