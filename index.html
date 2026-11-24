@@ -143,6 +143,22 @@ body.priv .m{filter:blur(7px);user-select:none}
 .cob .tr i{display:block;height:100%;border-radius:4px}
 .cob .v{text-align:right;font-weight:700}
 .cob .v small{font-weight:500;color:var(--muted);margin-left:4px}
+.cob{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cob .tw{grid-column:1/-1;display:none;padding:6px 0 4px}
+.cob.open .tw{display:block}
+.cob.open>span:first-child{color:var(--accent);font-weight:700}
+.tw svg{display:block;width:100%;height:auto}
+.tw .tl{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-top:4px}
+.tw .tl b{white-space:nowrap}
+.hidt{text-align:right}.hidt b{font-size:24px;font-weight:800;color:var(--bad)}
+.hsec{margin-top:14px}
+.hsec h3{display:flex;justify-content:space-between;gap:10px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;margin:0 0 4px;color:var(--text-2)}
+.hsec h3 b{color:var(--bad)}
+.hr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-top:1px solid var(--border);font-size:13.5px}
+.hr .v{font-weight:700;text-align:right;white-space:nowrap}
+.hr .n{grid-column:1/-1;font-size:12px;color:var(--muted);line-height:1.35}
+.hr .n b{color:var(--text)}
+.hr.off{opacity:.55}
 .loanv{border-top:1px solid var(--border);padding:10px 0}
 .loanv:first-of-type{border-top:0}
 .loanv .h{display:flex;justify-content:space-between;gap:8px;font-weight:750}
@@ -224,6 +240,11 @@ body.priv .m{filter:blur(7px);user-select:none}
       <div class="card">
         <h2>Dove vanno i soldi</h2><div class="sub" id="coWhereSub"></div>
         <div class="cobars" id="coWhere"></div>
+        <div class="sub" style="margin-top:8px">Tocca una voce per vedere come cambia mese per mese.</div>
+      </div>
+      <div class="card" id="coHidCard" style="display:none">
+        <div class="row" style="align-items:flex-start"><div><h2>Costi sommersi</h2><div class="sub" id="coHidSub"></div></div><span class="spacer"></span><div class="hidt"><b class="m" id="coHidTot"></b><div class="sub">all'anno</div></div></div>
+        <div id="coHid"></div>
       </div>
       <div class="card">
         <h2>Finanziamenti</h2><div class="sub">Il debito residuo è una passività: un valore che devi ancora.</div>
@@ -609,7 +630,9 @@ function renderCo(){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+pv(c.parsed.y)}}}}});
   const mx=Math.max(...C.cats.map(x=>x.avg),1), tot=C.cats.reduce((a,x)=>a+x.tot,0)||1;
   $('#coWhereSub').textContent='Spese correnti, media al mese · '+(C.mode==='comp'?'competenza (spese annuali divise su 12 mesi)':'cassa (quando escono i soldi)');
-  $('#coWhere').innerHTML=C.cats.map(x=>`<div class="cob"><span>${esc(x.l)}</span><span class="v num"><span class="m">${eur(x.avg)}</span><small>${Math.round(x.tot/tot*100)}%</small></span><span class="tr"><i style="width:${(x.avg/mx*100).toFixed(1)}%;background:var(${x.c},var(--s-out))"></i></span></div>`).join('');
+  $('#coWhere').innerHTML=C.cats.map((x,i)=>`<div class="cob" data-i="${i}"><span>${esc(x.l)}</span><span class="v num"><span class="m">${eur(x.avg)}</span><small>${Math.round(x.tot/tot*100)}%</small></span><span class="tr"><i style="width:${(x.avg/mx*100).toFixed(1)}%;background:var(${x.c},var(--s-out))"></i></span><div class="tw"></div></div>`).join('');
+  $('#coWhere').onclick=e=>{ const b=e.target.closest('.cob'); if(!b) return; const x=C.cats[+b.dataset.i]; if(!b.classList.contains('open')) b.querySelector('.tw').innerHTML=coTrend(x,C.months); b.classList.toggle('open'); };
+  renderHid(C.hid);
   $('#coLoans').innerHTML=(C.loans||[]).map(L=>{ const pr=L.n?Math.min(1,L.paid/L.n):(L.done?1:.5);
     return `<div class="loanv"><div class="h"><span>${esc(L.name)}</span><span class="bdg ${L.done?'ok':'warn'}">${L.done?'Chiuso':'In corso'}</span></div>
       <div class="sub">${esc(L.cred)} · rata <span class="m">${eur(L.rata)}</span> · ${L.paid}${L.n?' rate su '+L.n:' rate pagate'}${L.end?' · fine '+L.end:''}</div>
@@ -617,6 +640,35 @@ function renderCo(){
       ${!L.done&&L.resid!=null?`<div class="sub" style="margin-top:4px">Debito residuo <b class="m">${eur(L.resid)}</b></div>`:''}</div>`; }).join('')||'<div class="sub">Nessun finanziamento.</div>';
   $('#coFoot').textContent='Estratti conto letti il '+new Date(C.at).toLocaleDateString('it-IT')+(C.last?' · ultimo movimento '+new Date(C.last).toLocaleDateString('it-IT'):'');
 }
+/* andamento di una voce: barre per mese, media tratteggiata, tendenza (minimi quadrati) */
+function coTrend(x,months){
+  if(!x.s || !x.s.length) return '<div class="sub">Andamento non ancora disponibile: arriva con la prossima pubblicazione dal PC.</div>';
+  const v=x.s, n=v.length, avg=v.reduce((a,b)=>a+b,0)/n; const mx=(n-1)/2; let num=0,den=0; v.forEach((y,i)=>{num+=(i-mx)*(y-avg);den+=(i-mx)**2;}); const sl=den?num/den:0;
+  const k=Math.min(3,Math.floor(n/2)), l3=k?v.slice(-k).reduce((a,b)=>a+b,0)/k:0, p3=k?v.slice(-2*k,-k).reduce((a,b)=>a+b,0)/k:0;
+  const W=320,H=96,pt=6,pb=14, hi=Math.max(1,...v), lo=Math.min(0,...v), sy=y=>pt+(hi-y)/(hi-lo||1)*(H-pt-pb), bw=W/n;
+  let g=''; v.forEach((y,i)=>{ const y0=sy(0),y1=sy(y); g+=`<rect x="${(i*bw+bw*.15).toFixed(1)}" y="${Math.min(y0,y1).toFixed(1)}" width="${(bw*.7).toFixed(1)}" height="${Math.max(1,Math.abs(y1-y0)).toFixed(1)}" rx="2" fill="var(${x.c},var(--s-out))"/>`;
+    if(n<=13 || i%2===(n-1)%2){ const [yy,mm]=months[i].split('-'); g+=`<text x="${(i*bw+bw/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="9" fill="var(--muted)">${MESI[+mm-1][0].toUpperCase()}${+mm===1?yy.slice(2):''}</text>`; } });
+  g+=`<line x1="0" x2="${W}" y1="${sy(avg).toFixed(1)}" y2="${sy(avg).toFixed(1)}" stroke="var(--muted)" stroke-dasharray="4 3"/>`;
+  if(n>=4) g+=`<line x1="${(bw/2).toFixed(1)}" x2="${(W-bw/2).toFixed(1)}" y1="${sy(avg-sl*mx).toFixed(1)}" y2="${sy(avg+sl*mx).toFixed(1)}" stroke="var(--warn)" stroke-width="2"/>`;
+  const yr=sl*12, rel=Math.abs(avg)>0.5?yr/Math.abs(avg):0; let vd='stabile', vc='var(--muted)'; if(n>=4 && Math.abs(rel)>=0.1){ vd=sl>0?'in aumento':'in calo'; vc=sl>0?'var(--bad)':'var(--good)'; }
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento di ${esc(x.l)}">${g}</svg>
+    <div class="tl"><span>Tendenza</span><b style="color:${vc}">${vd}</b></div>
+    <div class="tl"><span>Media al mese</span><b class="m">${eur(avg)}</b></div>
+    ${k?`<div class="tl"><span>Ultimi ${k} mesi / ${k} precedenti</span><b class="m">${eur(l3)} / ${eur(p3)}</b></div>`:''}
+    ${n>=4?`<div class="tl"><span>Linea arancio: in un anno</span><b class="m">${yr>=0?'+':'−'}${eur(Math.abs(yr))} al mese</b></div>`:''}`;
+}
+/* costi sommersi: calcolati dall'engine sul PC (DB.acct.sum.hid) */
+function renderHid(H){
+  const card=$('#coHidCard'); if(!card) return; if(!H || !H.sec || !H.sec.length){ card.style.display='none'; return; }
+  card.style.display='';
+  $('#coHidSub').textContent='Soldi che escono senza che te ne accorga · ultimi '+H.nM+' mesi chiusi ('+H.period+')';
+  $('#coHidTot').textContent=eur(H.tot);
+  const secs=H.sec.filter(x=>!x.out).concat(H.sec.filter(x=>x.out));
+  $('#coHid').innerHTML=secs.map(S=>`<div class="hsec"><h3><span>${esc(S.h)}</span><b class="m">${eur(S.tot)}</b></h3>${S.out?'<div class="sub" style="font-size:12px;margin-bottom:4px">Spese necessarie, fuori dal totale in alto: la tariffa si può confrontare e cambiare.</div>':''}`
+    +S.rows.map(r=>`<div class="hr${r.off?' off':''}"><span>${r.l}</span><span class="v m">${eur2h(r.v)}</span>${r.n?`<span class="n m">${r.n}</span>`:''}</div>`).join('')+'</div>').join('')
+    +'<div class="sub" style="font-size:12px;margin-top:10px">Non compaiono: il ricarico sul cambio delle spese in valuta estera (circa l’1%) e le commissioni dei broker.</div>';
+}
+const eur2h=v=>v==null?'—':new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
 const CL=()=>Object.fromEntries(D.classes.map(c=>[c.id,c]));
 function renderOv(){
   const T=D.totals; $('#tot').textContent=eur(T.total);
